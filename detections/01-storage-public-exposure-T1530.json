@@ -1,0 +1,41 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "resources": [
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "name": "law-cloudsoc/Microsoft.SecurityInsights/public-storage-exposure-t1530",
+      "apiVersion": "2023-02-01",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "Public Storage Exposure - Exfiltration (T1530)",
+        "description": "Detects enabling anonymous public access on an Azure Storage account, a data exfiltration technique.",
+        "severity": "Medium",
+        "enabled": true,
+        "query": "AzureActivity | where OperationNameValue has 'STORAGEACCOUNTS/WRITE' | extend props = parse_json(Properties) | extend requestBody = tostring(props.requestbody) | where requestBody has 'allowBlobPublicAccess' | extend publicAccess = tostring(parse_json(requestBody).properties.allowBlobPublicAccess) | where publicAccess == 'true' | project TimeGenerated, Caller, CallerIpAddress, Resource, ResourceGroup, publicAccess",
+        "queryFrequency": "PT5M",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "tactics": ["Collection"],
+        "techniques": ["T1530"],
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT1H",
+            "matchingMethod": "AllEntities"
+          }
+        },
+        "entityMappings": [
+          { "entityType": "Account", "fieldMappings": [{ "identifier": "Name", "columnName": "Caller" }] },
+          { "entityType": "IP", "fieldMappings": [{ "identifier": "Address", "columnName": "CallerIpAddress" }] },
+          { "entityType": "AzureResource", "fieldMappings": [{ "identifier": "ResourceId", "columnName": "Resource" }] }
+        ]
+      }
+    }
+  ]
+}

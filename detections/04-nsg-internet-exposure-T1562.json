@@ -1,0 +1,40 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "resources": [
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "name": "law-cloudsoc/Microsoft.SecurityInsights/nsg-internet-exposure-t1562",
+      "apiVersion": "2023-02-01",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "NSG Rule Exposing Management Ports - Defense Evasion (T1562)",
+        "description": "Detects creation or modification of an NSG security rule, used to open management ports (SSH/RDP) to the internet.",
+        "severity": "High",
+        "enabled": true,
+        "query": "AzureActivity | where OperationNameValue has 'SECURITYRULES/WRITE' | where ActivityStatusValue == 'Success' | project TimeGenerated, Caller, CallerIpAddress, Resource, ResourceGroup, OperationNameValue",
+        "queryFrequency": "PT5M",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "tactics": ["DefenseEvasion"],
+        "techniques": ["T1562"],
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT1H",
+            "matchingMethod": "AllEntities"
+          }
+        },
+        "entityMappings": [
+          { "entityType": "Account", "fieldMappings": [{ "identifier": "Name", "columnName": "Caller" }] },
+          { "entityType": "IP", "fieldMappings": [{ "identifier": "Address", "columnName": "CallerIpAddress" }] }
+        ]
+      }
+    }
+  ]
+}

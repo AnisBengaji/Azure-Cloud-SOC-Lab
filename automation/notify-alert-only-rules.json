@@ -1,0 +1,80 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "variables": {
+    "playbookId": "/subscriptions/e861a44e-ccf6-4b50-b219-8ed899bba94e/resourceGroups/rg-cloudsoc-lab/providers/Microsoft.Logic/workflows/pb-notify-soc",
+    "tenantId": "604f1a96-cbe8-43f8-abbf-f8eaf5d85730"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/automationRules",
+      "apiVersion": "2023-02-01",
+      "name": "law-cloudsoc/Microsoft.SecurityInsights/notify-role-assignment",
+      "properties": {
+        "displayName": "Notify - Role Assignment",
+        "order": 10,
+        "triggeringLogic": {
+          "isEnabled": true, "triggersOn": "Incidents", "triggersWhen": "Created",
+          "conditions": [ { "conditionType": "Property", "conditionProperties": { "propertyName": "IncidentTitle", "operator": "Contains", "propertyValues": [ "Suspicious Role Assignment" ] } } ]
+        },
+        "actions": [ { "order": 1, "actionType": "RunPlaybook", "actionConfiguration": { "logicAppResourceId": "[variables('playbookId')]", "tenantId": "[variables('tenantId')]" } } ]
+      }
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/automationRules",
+      "apiVersion": "2023-02-01",
+      "name": "law-cloudsoc/Microsoft.SecurityInsights/notify-keyvault",
+      "properties": {
+        "displayName": "Notify - Key Vault Access",
+        "order": 11,
+        "triggeringLogic": {
+          "isEnabled": true, "triggersOn": "Incidents", "triggersWhen": "Created",
+          "conditions": [ { "conditionType": "Property", "conditionProperties": { "propertyName": "IncidentTitle", "operator": "Contains", "propertyValues": [ "Key Vault Secret Access" ] } } ]
+        },
+        "actions": [ { "order": 1, "actionType": "RunPlaybook", "actionConfiguration": { "logicAppResourceId": "[variables('playbookId')]", "tenantId": "[variables('tenantId')]" } } ]
+      }
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/automationRules",
+      "apiVersion": "2023-02-01",
+      "name": "law-cloudsoc/Microsoft.SecurityInsights/notify-lock-delete",
+      "properties": {
+        "displayName": "Notify - Resource Lock Deleted",
+        "order": 12,
+        "triggeringLogic": {
+          "isEnabled": true, "triggersOn": "Incidents", "triggersWhen": "Created",
+          "conditions": [ { "conditionType": "Property", "conditionProperties": { "propertyName": "IncidentTitle", "operator": "Contains", "propertyValues": [ "Resource Lock Deleted" ] } } ]
+        },
+        "actions": [ { "order": 1, "actionType": "RunPlaybook", "actionConfiguration": { "logicAppResourceId": "[variables('playbookId')]", "tenantId": "[variables('tenantId')]" } } ]
+      }
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/automationRules",
+      "apiVersion": "2023-02-01",
+      "name": "law-cloudsoc/Microsoft.SecurityInsights/notify-blob-delete",
+      "properties": {
+        "displayName": "Notify - Blob Deletion",
+        "order": 13,
+        "triggeringLogic": {
+          "isEnabled": true, "triggersOn": "Incidents", "triggersWhen": "Created",
+          "conditions": [ { "conditionType": "Property", "conditionProperties": { "propertyName": "IncidentTitle", "operator": "Contains", "propertyValues": [ "Blob Data Deletion" ] } } ]
+        },
+        "actions": [ { "order": 1, "actionType": "RunPlaybook", "actionConfiguration": { "logicAppResourceId": "[variables('playbookId')]", "tenantId": "[variables('tenantId')]" } } ]
+      }
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/automationRules",
+      "apiVersion": "2023-02-01",
+      "name": "law-cloudsoc/Microsoft.SecurityInsights/notify-defender",
+      "properties": {
+        "displayName": "Notify - Defender Plan Modified",
+        "order": 14,
+        "triggeringLogic": {
+          "isEnabled": true, "triggersOn": "Incidents", "triggersWhen": "Created",
+          "conditions": [ { "conditionType": "Property", "conditionProperties": { "propertyName": "IncidentTitle", "operator": "Contains", "propertyValues": [ "Defender for Cloud Plan Modified" ] } } ]
+        },
+        "actions": [ { "order": 1, "actionType": "RunPlaybook", "actionConfiguration": { "logicAppResourceId": "[variables('playbookId')]", "tenantId": "[variables('tenantId')]" } } ]
+      }
+    }
+  ]
+}

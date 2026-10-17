@@ -1,0 +1,39 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "resources": [
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "name": "law-cloudsoc/Microsoft.SecurityInsights/blob-deletion-t1485",
+      "apiVersion": "2023-02-01",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "Blob Data Deletion - Impact (T1485)",
+        "description": "Detects deletion of blob data in Azure Storage. Attackers delete data for destructive impact or ransomware; soft-delete enables recovery.",
+        "severity": "Medium",
+        "enabled": true,
+        "query": "StorageBlobLogs | where OperationName == 'DeleteBlob' | project TimeGenerated, AccountName, Uri, CallerIpAddress, AuthenticationType",
+        "queryFrequency": "PT10M",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "tactics": ["Impact"],
+        "techniques": ["T1485"],
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT1H",
+            "matchingMethod": "AllEntities"
+          }
+        },
+        "entityMappings": [
+          { "entityType": "IP", "fieldMappings": [{ "identifier": "Address", "columnName": "CallerIpAddress" }] }
+        ]
+      }
+    }
+  ]
+}

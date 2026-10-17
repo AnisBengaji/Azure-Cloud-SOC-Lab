@@ -1,0 +1,106 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "variables": {
+    "discordWebhook": "<YOUR_DISCORD_WEBHOOK>",
+    "sub": "e861a44e-ccf6-4b50-b219-8ed899bba94e",
+    "rg": "rg-attack-exfil"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Logic/workflows",
+      "apiVersion": "2019-05-01",
+      "name": "pb-nsg-containment",
+      "location": "francecentral",
+      "identity": { "type": "SystemAssigned" },
+      "properties": {
+        "state": "Enabled",
+        "definition": {
+          "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+          "contentVersion": "1.0.0.0",
+          "triggers": {
+            "manual": { "type": "Request", "kind": "Http", "inputs": { "schema": {} } }
+          },
+          "actions": {
+            "List_NSGs": {
+              "type": "Http",
+              "inputs": {
+                "method": "GET",
+                "uri": "[concat('https://management.azure.com/subscriptions/', variables('sub'), '/resourceGroups/', variables('rg'), '/providers/Microsoft.Network/networkSecurityGroups?api-version=2023-05-01')]",
+                "authentication": { "type": "ManagedServiceIdentity", "audience": "https://management.azure.com" }
+              }
+            },
+            "For_each_NSG": {
+              "runAfter": { "List_NSGs": ["Succeeded"] },
+              "type": "Foreach",
+              "foreach": "@body('List_NSGs')?['value']",
+              "actions": {
+                "For_each_rule": {
+                  "type": "Foreach",
+                  "foreach": "@items('For_each_NSG')?['properties']?['securityRules']",
+                  "actions": {
+                    "If_dangerous": {
+                      "type": "If",
+                      "expression": {
+                        "and": [
+                          { "equals": [ "@items('For_each_rule')?['properties']?['access']", "Allow" ] },
+                          { "equals": [ "@items('For_each_rule')?['properties']?['direction']", "Inbound" ] },
+                          { "or": [
+                            { "equals": [ "@items('For_each_rule')?['properties']?['sourceAddressPrefix']", "*" ] },
+                            { "equals": [ "@items('For_each_rule')?['properties']?['sourceAddressPrefix']", "0.0.0.0/0" ] },
+                            { "equals": [ "@items('For_each_rule')?['properties']?['sourceAddressPrefix']", "Internet" ] }
+                          ]}
+                        ]
+                      },
+                      "actions": {
+                        "Delete_rule": {
+                          "type": "Http",
+                          "inputs": {
+                            "method": "DELETE",
+                            "uri": "@{concat('https://management.azure.com', items('For_each_NSG')?['id'], '/securityRules/', items('For_each_rule')?['name'], '?api-version=2023-05-01')}",
+                            "authentication": { "type": "ManagedServiceIdentity", "audience": "https://management.azure.com" }
+                          }
+                        },
+                        "Alert_Discord": {
+                          "runAfter": { "Delete_rule": ["Succeeded"] },
+                          "type": "Http",
+                          "inputs": {
+                            "method": "POST",
+                            "uri": "[variables('discordWebhook')]",
+                            "headers": { "Content-Type": "application/json" },
+                            "body": {
+                              "username": "Azure SOC | Sentinel SOAR",
+                              "embeds": [
+                                {
+                                  "title": "🛡️ Incident Auto-Contained — Network Exposure",
+                                  "description": "An NSG rule allowing inbound access from the internet was detected and automatically removed.",
+                                  "color": 15158332,
+                                  "fields": [
+                                    { "name": "Severity", "value": "🔴 High", "inline": true },
+                                    { "name": "Status", "value": "✅ Contained", "inline": true },
+                                    { "name": "Response Path", "value": "Event-driven (<1 min)", "inline": true },
+                                    { "name": "NSG", "value": "`@{items('For_each_NSG')?['name']}`", "inline": true },
+                                    { "name": "Rule Removed", "value": "`@{items('For_each_rule')?['name']}`", "inline": true },
+                                    { "name": "Exposed Ports", "value": "@{items('For_each_rule')?['properties']?['destinationPortRange']}", "inline": true },
+                                    { "name": "MITRE ATT&CK", "value": "T1562 — Impair Defenses / Network Exposure", "inline": false },
+                                    { "name": "Action Taken", "value": "Inbound Allow-from-Internet rule DELETED", "inline": false }
+                                  ],
+                                  "footer": { "text": "Cloud SOC Lab • Automated Response • Anis Bengaji" },
+                                  "timestamp": "@{utcNow()}"
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

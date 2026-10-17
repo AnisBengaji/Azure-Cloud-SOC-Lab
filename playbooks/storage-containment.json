@@ -1,0 +1,90 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "variables": {
+    "discordWebhook": "<YOUR_DISCORD_WEBHOOK>",
+    "sub": "e861a44e-ccf6-4b50-b219-8ed899bba94e",
+    "rg": "rg-attack-exfil"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Logic/workflows",
+      "apiVersion": "2019-05-01",
+      "name": "pb-fast-remediate",
+      "location": "francecentral",
+      "identity": { "type": "SystemAssigned" },
+      "properties": {
+        "state": "Enabled",
+        "definition": {
+          "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+          "contentVersion": "1.0.0.0",
+          "triggers": {
+            "manual": { "type": "Request", "kind": "Http", "inputs": { "schema": {} } }
+          },
+          "actions": {
+            "List_storage_accounts": {
+              "type": "Http",
+              "inputs": {
+                "method": "GET",
+                "uri": "[concat('https://management.azure.com/subscriptions/', variables('sub'), '/resourceGroups/', variables('rg'), '/providers/Microsoft.Storage/storageAccounts?api-version=2023-01-01')]",
+                "authentication": { "type": "ManagedServiceIdentity", "audience": "https://management.azure.com" }
+              }
+            },
+            "For_each_account": {
+              "runAfter": { "List_storage_accounts": ["Succeeded"] },
+              "type": "Foreach",
+              "foreach": "@body('List_storage_accounts')?['value']",
+              "actions": {
+                "If_public": {
+                  "type": "If",
+                  "expression": { "and": [ { "equals": [ "@items('For_each_account')?['properties']?['allowBlobPublicAccess']", true ] } ] },
+                  "actions": {
+                    "Remediate": {
+                      "type": "Http",
+                      "inputs": {
+                        "method": "PATCH",
+                        "uri": "@{concat('https://management.azure.com', items('For_each_account')?['id'], '?api-version=2023-01-01')}",
+                        "body": { "properties": { "allowBlobPublicAccess": false } },
+                        "authentication": { "type": "ManagedServiceIdentity", "audience": "https://management.azure.com" }
+                      }
+                    },
+                    "Alert_Discord": {
+                      "runAfter": { "Remediate": ["Succeeded"] },
+                      "type": "Http",
+                      "inputs": {
+                        "method": "POST",
+                        "uri": "[variables('discordWebhook')]",
+                        "headers": { "Content-Type": "application/json" },
+                        "body": {
+                          "username": "Azure SOC | Sentinel SOAR",
+                          "embeds": [
+                            {
+                              "title": "🛡️ Incident Auto-Contained — Public Storage Exposure",
+                              "description": "A storage account was exposed to anonymous public access and automatically remediated by the SOAR pipeline.",
+                              "color": 15158332,
+                              "fields": [
+                                { "name": "Severity", "value": "🔴 High", "inline": true },
+                                { "name": "Status", "value": "✅ Contained", "inline": true },
+                                { "name": "Response Path", "value": "Event-driven (<1 min)", "inline": true },
+                                { "name": "Affected Resource", "value": "`@{items('For_each_account')?['name']}`", "inline": false },
+                                { "name": "MITRE ATT&CK", "value": "T1530 — Data from Cloud Storage (Collection)", "inline": true },
+                                { "name": "Action Taken", "value": "`allowBlobPublicAccess` set to **false**", "inline": false },
+                                { "name": "Detection Source", "value": "Azure Activity Log Alert → Logic App playbook", "inline": false }
+                              ],
+                              "footer": { "text": "Cloud SOC Lab • Automated Response • Anis Bengaji" },
+                              "timestamp": "@{utcNow()}"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

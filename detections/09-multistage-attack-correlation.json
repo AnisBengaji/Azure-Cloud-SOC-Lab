@@ -1,0 +1,40 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "resources": [
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "name": "law-cloudsoc/Microsoft.SecurityInsights/multistage-attack-chain",
+      "apiVersion": "2023-02-01",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "Multi-Stage Attack Chain - Correlated Activity",
+        "description": "Fires when a single identity performs 2+ distinct attack techniques (privilege escalation, network exposure, data exposure, defense evasion) within one hour, indicating a coordinated attack rather than isolated activity.",
+        "severity": "High",
+        "enabled": true,
+        "query": "let lookback = 1h;\nAzureActivity\n| where TimeGenerated > ago(lookback)\n| where ActivityStatusValue in ('Success', 'Start')\n| extend AttackType = case(OperationNameValue has 'ROLEASSIGNMENTS/WRITE', 'PrivEsc-T1098', OperationNameValue has 'SECURITYRULES/WRITE', 'NetExposure-T1562', OperationNameValue has 'STORAGEACCOUNTS/WRITE' and tostring(parse_json(tostring(parse_json(Properties).requestbody)).properties.allowBlobPublicAccess) == 'true', 'DataExposure-T1530', OperationNameValue has 'DIAGNOSTICSETTINGS/DELETE', 'DefenseEvasion-T1562', '')\n| where AttackType != ''\n| summarize DistinctAttackTypes = dcount(AttackType), Techniques = make_set(AttackType), StartTime = min(TimeGenerated), EndTime = max(TimeGenerated) by Caller, CallerIpAddress\n| where DistinctAttackTypes >= 2",
+        "queryFrequency": "PT10M",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "tactics": ["Persistence", "DefenseEvasion", "Collection"],
+        "techniques": ["T1098", "T1562", "T1530"],
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT1H",
+            "matchingMethod": "AllEntities"
+          }
+        },
+        "entityMappings": [
+          { "entityType": "Account", "fieldMappings": [{ "identifier": "Name", "columnName": "Caller" }] },
+          { "entityType": "IP", "fieldMappings": [{ "identifier": "Address", "columnName": "CallerIpAddress" }] }
+        ]
+      }
+    }
+  ]
+}

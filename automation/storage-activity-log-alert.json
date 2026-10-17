@@ -1,0 +1,50 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "variables": {
+    "triggerUrl": "<PLAYBOOK_TRIGGER_URL>"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Insights/actionGroups",
+      "apiVersion": "2023-01-01",
+      "name": "ag-fast-remediate",
+      "location": "Global",
+      "properties": {
+        "groupShortName": "FastRemed",
+        "enabled": true,
+        "logicAppReceivers": [],
+        "webhookReceivers": [
+          {
+            "name": "trigger-playbook",
+            "serviceUri": "[variables('triggerUrl')]",
+            "useCommonAlertSchema": true
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Insights/activityLogAlerts",
+      "apiVersion": "2020-10-01",
+      "name": "alert-storage-write",
+      "location": "Global",
+      "dependsOn": [ "[resourceId('Microsoft.Insights/actionGroups', 'ag-fast-remediate')]" ],
+      "properties": {
+        "enabled": true,
+        "scopes": [ "/subscriptions/e861a44e-ccf6-4b50-b219-8ed899bba94e" ],
+        "condition": {
+          "allOf": [
+            { "field": "category", "equals": "Administrative" },
+            { "field": "operationName", "equals": "Microsoft.Storage/storageAccounts/write" },
+            { "field": "status", "equals": "Succeeded" }
+          ]
+        },
+        "actions": {
+          "actionGroups": [
+            { "actionGroupId": "[resourceId('Microsoft.Insights/actionGroups', 'ag-fast-remediate')]" }
+          ]
+        }
+      }
+    }
+  ]
+}

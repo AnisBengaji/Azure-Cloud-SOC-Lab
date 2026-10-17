@@ -1,0 +1,92 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "variables": {
+    "discordWebhook": "<YOUR_DISCORD_WEBHOOK>"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Logic/workflows",
+      "apiVersion": "2019-05-01",
+      "name": "pb-remediate-public-storage",
+      "location": "francecentral",
+      "identity": { "type": "SystemAssigned" },
+      "properties": {
+        "state": "Enabled",
+        "definition": {
+          "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+          "contentVersion": "1.0.0.0",
+          "parameters": {
+            "$connections": { "defaultValue": {}, "type": "Object" }
+          },
+          "triggers": {
+            "Microsoft_Sentinel_incident": {
+              "type": "ApiConnectionWebhook",
+              "inputs": {
+                "body": { "callback_url": "@{listCallbackUrl()}" },
+                "host": { "connection": { "name": "@parameters('$connections')['azuresentinel']['connectionId']" } },
+                "path": "/incident-creation"
+              }
+            }
+          },
+          "actions": {
+            "Get_storage_entities": {
+              "type": "Compose",
+              "inputs": "@triggerBody()?['object']?['properties']?['relatedEntities']"
+            },
+            "For_each_entity": {
+              "runAfter": { "Get_storage_entities": ["Succeeded"] },
+              "type": "Foreach",
+              "foreach": "@outputs('Get_storage_entities')",
+              "actions": {
+                "Check_if_storage_account": {
+                  "type": "If",
+                  "expression": {
+                    "and": [
+                      { "contains": [ "@toLower(string(items('For_each_entity')?['properties']?['resourceId']))", "microsoft.storage/storageaccounts" ] }
+                    ]
+                  },
+                  "actions": {
+                    "Disable_public_access": {
+                      "type": "Http",
+                      "inputs": {
+                        "method": "PATCH",
+                        "uri": "https://management.azure.com@{items('For_each_entity')?['properties']?['resourceId']}?api-version=2023-01-01",
+                        "body": { "properties": { "allowBlobPublicAccess": false, "publicNetworkAccess": "Disabled" } },
+                        "authentication": { "type": "ManagedServiceIdentity", "audience": "https://management.azure.com" }
+                      }
+                    },
+                    "Notify_remediated": {
+                      "runAfter": { "Disable_public_access": ["Succeeded"] },
+                      "type": "Http",
+                      "inputs": {
+                        "method": "POST",
+                        "uri": "[variables('discordWebhook')]",
+                        "headers": { "Content-Type": "application/json" },
+                        "body": {
+                          "content": "🛡️ **AUTO-REMEDIATION COMPLETE**\n**Incident:** @{triggerBody()?['object']?['properties']?['title']}\n**Severity:** @{triggerBody()?['object']?['properties']?['severity']}\n**Resource contained:** @{items('For_each_entity')?['properties']?['resourceId']}\n**Action taken:** Public blob access DISABLED, public network access DISABLED.\n**MITRE:** T1530 - Data from Cloud Storage\n_Automated containment by Cloud SOC Lab playbook._"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": {
+          "$connections": {
+            "value": {
+              "azuresentinel": {
+                "connectionId": "[resourceId('Microsoft.Web/connections', 'azuresentinel-conn')]",
+                "connectionName": "azuresentinel-conn",
+                "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/francecentral/managedApis/azuresentinel')]"
+              }
+            }
+          }
+        }
+      },
+      "dependsOn": []
+    }
+  ]
+}

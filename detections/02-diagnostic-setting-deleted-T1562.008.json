@@ -1,0 +1,40 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "resources": [
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "name": "law-cloudsoc/Microsoft.SecurityInsights/diagnostic-setting-deleted-t1562",
+      "apiVersion": "2023-02-01",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "Diagnostic Setting Deleted - Defense Evasion (T1562.008)",
+        "description": "Detects deletion of a subscription diagnostic setting, an attempt to disable logging and blind the SIEM.",
+        "severity": "High",
+        "enabled": true,
+        "query": "AzureActivity | where OperationNameValue == 'MICROSOFT.INSIGHTS/DIAGNOSTICSETTINGS/DELETE' | where ActivityStatusValue == 'Success' | project TimeGenerated, Caller, CallerIpAddress, Resource, ResourceGroup, OperationNameValue",
+        "queryFrequency": "PT5M",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "tactics": ["DefenseEvasion"],
+        "techniques": ["T1562"],
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": false,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5M",
+            "matchingMethod": "AllEntities"
+          }
+        },
+        "entityMappings": [
+          { "entityType": "Account", "fieldMappings": [{ "identifier": "Name", "columnName": "Caller" }] },
+          { "entityType": "IP", "fieldMappings": [{ "identifier": "Address", "columnName": "CallerIpAddress" }] }
+        ]
+      }
+    }
+  ]
+}

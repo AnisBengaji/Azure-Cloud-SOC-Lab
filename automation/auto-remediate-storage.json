@@ -1,0 +1,40 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "resources": [
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/automationRules",
+      "apiVersion": "2023-02-01",
+      "name": "law-cloudsoc/Microsoft.SecurityInsights/auto-remediate-storage",
+      "properties": {
+        "displayName": "Auto-remediate public storage exposure",
+        "order": 1,
+        "triggeringLogic": {
+          "isEnabled": true,
+          "triggersOn": "Incidents",
+          "triggersWhen": "Created",
+          "conditions": [
+            {
+              "conditionType": "Property",
+              "conditionProperties": {
+                "propertyName": "IncidentTitle",
+                "operator": "Contains",
+                "propertyValues": [ "Public Storage Exposure" ]
+              }
+            }
+          ]
+        },
+        "actions": [
+          {
+            "order": 1,
+            "actionType": "RunPlaybook",
+            "actionConfiguration": {
+              "logicAppResourceId": "/subscriptions/e861a44e-ccf6-4b50-b219-8ed899bba94e/resourceGroups/rg-cloudsoc-lab/providers/Microsoft.Logic/workflows/pb-remediate-public-storage",
+              "tenantId": "604f1a96-cbe8-43f8-abbf-f8eaf5d85730"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

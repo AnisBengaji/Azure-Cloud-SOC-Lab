@@ -1,0 +1,40 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "resources": [
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "name": "law-cloudsoc/Microsoft.SecurityInsights/defender-plan-modified-t1562",
+      "apiVersion": "2023-02-01",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "Defender for Cloud Plan Modified - Defense Evasion (T1562)",
+        "description": "Detects changes to Microsoft Defender for Cloud pricing plans. Attackers downgrade or disable Defender protection to evade cloud-native threat detection before further activity.",
+        "severity": "High",
+        "enabled": true,
+        "query": "AzureActivity | where OperationNameValue has 'SECURITY/PRICINGS/WRITE' | where ActivityStatusValue == 'Success' | project TimeGenerated, Caller, CallerIpAddress, Resource, ResourceGroup, OperationNameValue",
+        "queryFrequency": "PT5M",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "tactics": ["DefenseEvasion"],
+        "techniques": ["T1562"],
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT1H",
+            "matchingMethod": "AllEntities"
+          }
+        },
+        "entityMappings": [
+          { "entityType": "Account", "fieldMappings": [{ "identifier": "Name", "columnName": "Caller" }] },
+          { "entityType": "IP", "fieldMappings": [{ "identifier": "Address", "columnName": "CallerIpAddress" }] }
+        ]
+      }
+    }
+  ]
+}
