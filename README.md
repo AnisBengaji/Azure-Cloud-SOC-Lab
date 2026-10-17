@@ -24,7 +24,7 @@ I built it to learn cloud detection hands-on. Everything (detections, playbooks,
           (auto-remediation)            (alerts)
 ```
 
->  ![Architecture](docs/architecture.svg)
+>  ![Architecture](/architecture.svg)
 
 ## What's in it
 
