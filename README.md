@@ -6,23 +6,7 @@ I built it to learn cloud detection hands-on. Everything (detections, playbooks,
 
 ## Architecture
 
-```
-  Kali (Azure CLI)
-        │  runs attack techniques
-        ▼
-  Azure subscription  ──►  Activity Log, Key Vault & Storage diagnostic logs
-  (rg-attack-exfil)              │
-                                 ▼
-                      Log Analytics workspace (law-cloudsoc)
-                                 │
-                                 ▼
-                      Microsoft Sentinel  ──►  9 analytics rules → incidents
-                                 │
-                   ┌─────────────┴─────────────┐
-                   ▼                           ▼
-          Logic App playbooks           Discord channel
-          (auto-remediation)            (alerts)
-```
+
 
 >  ![Architecture](/architecture.png)
 
